@@ -302,36 +302,14 @@
 
 
 /* ═══════════════════════════════════════
-   7. CONTACT FORM  — powered by EmailJS
-   ─────────────────────────────────────
-   SETUP (one-time, ~3 minutes):
-   1. Go to https://www.emailjs.com and create a FREE account
-   2. Dashboard → Email Services → Add Service → Gmail
-      • Connect your Gmail (manyarm774@gmail.com)
-      • Copy the Service ID  → paste below as EMAILJS_SERVICE_ID
-   3. Dashboard → Email Templates → Create Template
-      Use these exact variable names in the template body:
-        From:    {{from_name}} <{{from_email}}>
-        Subject: {{subject}}
-        Message: {{message}}
-      • Copy the Template ID → paste below as EMAILJS_TEMPLATE_ID
-   4. Dashboard → Account → Public Key
-      • Copy your Public Key → paste below as EMAILJS_PUBLIC_KEY
-   ─────────────────────────────────────
-   Replace the three placeholder strings below with your real IDs.
+   7. CONTACT FORM — zero-config mailto
+   Works instantly, no accounts needed.
+   Clicking Send opens the visitor's
+   email client with everything pre-filled.
 ═══════════════════════════════════════ */
 (function initContactForm() {
 
-  /* ── YOUR EMAILJS CREDENTIALS ── */
-  const EMAILJS_PUBLIC_KEY   = 'YOUR_PUBLIC_KEY';    // e.g. 'abc123XYZ'
-  const EMAILJS_SERVICE_ID   = 'YOUR_SERVICE_ID';    // e.g. 'service_xxxxxx'
-  const EMAILJS_TEMPLATE_ID  = 'YOUR_TEMPLATE_ID';   // e.g. 'template_xxxxxx'
-  /* ─────────────────────────────── */
-
-  // Initialise EmailJS with your public key
-  if (window.emailjs) {
-    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
-  }
+  const TO_EMAIL = 'manyarm774@gmail.com';
 
   const form         = document.getElementById('contact-form');
   if (!form) return;
@@ -345,11 +323,6 @@
   const btnIcon      = document.getElementById('btn-icon');
   const successMsg   = document.getElementById('form-success');
 
-  const SPINNER_SVG = `<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"
-    fill="none" stroke-dasharray="31.4" stroke-dashoffset="10">
-    <animateTransform attributeName="transform" type="rotate"
-      from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/>
-    </circle>`;
   const SEND_SVG = `<line x1="22" y1="2" x2="11" y2="13"/>
     <polygon points="22 2 15 22 11 13 2 9 22 2"/>`;
 
@@ -393,76 +366,58 @@
     return valid;
   }
 
-  function setLoading(on) {
-    submitBtn.disabled = on;
-    if (btnText) btnText.textContent = on ? 'Sending…' : 'Send Message';
-    if (btnIcon) btnIcon.innerHTML   = on ? SPINNER_SVG : SEND_SVG;
-  }
-
   function showSuccess() {
     if (successMsg) {
       successMsg.classList.add('show');
-      setTimeout(() => successMsg.classList.remove('show'), 5000);
+      setTimeout(() => successMsg.classList.remove('show'), 6000);
     }
   }
 
-  function showError(msg) {
-    // Reuse the success bar but styled differently
-    const bar = document.createElement('div');
-    bar.style.cssText = `
-      display:flex; align-items:center; gap:.6rem; margin-top:1rem;
-      padding:1rem; border-radius:10px; font-size:.88rem; font-weight:500;
-      background:rgba(255,77,109,0.08); border:1px solid rgba(255,77,109,0.35);
-      color:#ff4d6d; animation: fade-in .4s ease;
-    `;
-    bar.textContent = '⚠️  ' + msg;
-    form.appendChild(bar);
-    setTimeout(() => bar.remove(), 6000);
-  }
-
-  /* — Form submit — */
+  /* — Form submit — opens email client with pre-filled message — */
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     if (!validateAll()) return;
 
-    // Guard: warn if credentials not set yet
-    if (
-      EMAILJS_PUBLIC_KEY  === 'YOUR_PUBLIC_KEY'  ||
-      EMAILJS_SERVICE_ID  === 'YOUR_SERVICE_ID'  ||
-      EMAILJS_TEMPLATE_ID === 'YOUR_TEMPLATE_ID'
-    ) {
-      showError('EmailJS is not configured yet. Please follow the setup steps in script.js.');
-      return;
-    }
+    const name    = nameInput.value.trim();
+    const from    = emailInput.value.trim();
+    const subject = subjectInput.value.trim();
+    const message = msgInput.value.trim();
 
-    if (!window.emailjs) {
-      showError('EmailJS failed to load. Check your internet connection and try again.');
-      return;
-    }
+    // Build a clean email body
+    const body = [
+      'Hello Manya,',
+      '',
+      'You have a new message from your portfolio website:',
+      '',
+      '──────────────────────────',
+      'Name    : ' + name,
+      'Email   : ' + from,
+      'Subject : ' + subject,
+      '──────────────────────────',
+      '',
+      message,
+      '',
+      '──────────────────────────',
+      'Sent via manyarm.portfolio',
+    ].join('\n');
 
-    setLoading(true);
+    // Encode & build mailto link
+    const mailtoLink =
+      'mailto:' + TO_EMAIL +
+      '?subject=' + encodeURIComponent('[Portfolio] ' + subject) +
+      '&body='    + encodeURIComponent(body);
 
-    // Build the template parameters — these match the template variable names
-    const templateParams = {
-      from_name:  nameInput.value.trim(),
-      from_email: emailInput.value.trim(),
-      subject:    subjectInput.value.trim(),
-      message:    msgInput.value.trim(),
-      to_email:   'manyarm774@gmail.com',
-    };
+    // Open email client
+    window.location.href = mailtoLink;
 
-    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams)
-      .then(function () {
-        setLoading(false);
-        showSuccess();
-        form.reset();
-        fields.forEach(({ el }) => { if (el) el.classList.remove('error'); });
-      })
-      .catch(function (err) {
-        setLoading(false);
-        console.error('EmailJS error:', err);
-        showError('Failed to send message. Please try emailing directly at manyarm774@gmail.com');
-      });
+    // Show success message & reset form
+    showSuccess();
+    form.reset();
+    fields.forEach(({ el }) => { if (el) el.classList.remove('error'); });
+
+    // Reset button icon (in case any state changed)
+    if (btnIcon) btnIcon.innerHTML = SEND_SVG;
+    if (submitBtn) submitBtn.disabled = false;
   });
 })();
 
